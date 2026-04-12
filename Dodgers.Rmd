@@ -1,0 +1,89 @@
+---
+title: "3.2 Assignment"
+author: "Aaron Dighton"
+date: "2025-06-22"
+output: pdf_document
+---
+
+```{r, results = 'hide', warning=FALSE, message=FALSE, error=FALSE, include = FALSE}
+library(readxl)
+data <- read.csv("dodgers-2022.csv")
+```
+
+First, I want to look at which variables there are in the dodgers.csv file, just to get a start on my data analsyis.  
+
+```{r, echo = FALSE}
+head(data)
+```
+
+After this, I want to convert all of the Yes and No variables to 1 and 0.  I will also convert the day and night variable to 1 and 0, respectively.  Similarly cloudy and clear will be 1 and 0, respectively.  Let me check the head of the data again to make sure it processed correctly.
+
+```{r, echo = FALSE}
+data$bobblehead <- ifelse(data$bobblehead == "YES", 1, 0)
+data$fireworks <- ifelse(data$fireworks == "YES", 1, 0)
+data$shirt <- ifelse(data$shirt == "YES", 1, 0)
+data$cap <- ifelse(data$cap == "YES", 1, 0)
+data$day_night <- ifelse(data$day_night == "Day", 1, 0)
+data$skies <- ifelse(data$skies == "Cloudy", 1, 0)
+head(data)
+```
+
+Everything looks good.  After this, I want to manipulate some data a little more generically, so I will make a dummy 'week' variable that includes only Monday through Thursday to try to differentiate between weekday games and weekend games.  I have little interest in sports, but there is a Wikipedia page about the Dodgers-Giants rivalry, so I will make a dummy variable for whether the opponent is the Giants or not.  I also think people who are taking their children to games may be more likely to go during the summer months, so I checked when school started in Los Angeles in 2022 (August 15) and will make a dummy variable for whether the game happened before or after August 15.  Now let me check that the data was created successfully.  
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+data$week <- as.integer(grepl(paste(c("Monday","Tuesday","Wednesday","Thursday"), collapse = "|"), data$day_of_week))
+data$rival <- ifelse(data$opponent == "Giants", 1, 0)
+require(lubridate)
+word_to_number <- c("APR" = 4, "MAY" = 5, "JUN" = 6, "JUL" = 7, "AUG" = 8, "SEP" = 9, "OCT" = 10)
+data$month <- word_to_number[data$month]
+data$year <- 2022
+data$date <- make_date(year = data$year, month = data$month, day = data$day)
+data$school <- ifelse(data$date > "2022-08-15", 1, 0)
+head(data)
+```
+This looks good, but one other concern I had is that the temperature will result in a non-linear relationship with attendance (both very low and very high temperatures may result in lower attendance), so I will graph these two variables to check their relationship.  
+
+```{r, echo = FALSE}
+plot(data$temp, data$attend, main="Attendance vs. Temperature", xlab="Temperature", ylab="Attendance")
+```
+This looks like there might be a slight depression if the temperature gets above 80 degrees, so I will make a dummy variable for temperature over 80.  
+
+```{r echo = FALSE}
+data$hightemp <- ifelse(data$temp > "80", 1, 0)
+```
+
+Now I will test a couple models.  
+
+First I will test with the following variables: week, rival, school, skies, day_night, cap, shirt, fireworks, temp, and bobblehead.  Then I will check the statistical significance of the variables.  
+
+```{r, echo = FALSE}
+model <- lm(data$attend ~ data$week + data$rival + data$school + data$skies + data$day_night + data$cap + data$shirt + data$fireworks + data$temp + data$bobblehead, data = data)
+```
+
+```{r}
+summary(model)
+```
+
+I thought that using the high temperature above 80 degrees would help the model, but it didn't improve the model and made some of the variables not statistically significant any longer.  
+
+```{r, echo = FALSE}
+modelhigh <- lm(data$attend ~ data$week + data$rival + data$school + data$skies + data$day_night + data$cap + data$shirt + data$fireworks + data$temp + data$hightemp + data$bobblehead, data = data)
+```
+
+```{r}
+summary(modelhigh)
+```
+
+So, using the first model gives me the result that the only statistically significant variables were the shirt giveaway days and the bobblehead giveaway days.  The base attendance at the games was also statistically significant with ~32,000 people attending regardless of other conditions, and shirt giveaway days increasing this by around 8,500 and bobblehead giveaway days increasing it by over 15,000.  
+
+Therefore, my suggestion would be to increase the number of giveaway days, either by increasing the number of bobblehead days specifically, or by creating new merchandise to give away.  Bobbleheads are exceedingly popular, it seems, so I would recommend making more of them.  This may oversaturate the market if there are too many days with bobblehead giveaways, so I'd recommend making special versions of them to increase their desirability (make them glow in the dark?  flocked?  special colors/patterns to mark special days in baseball history?) instead of the basic ones I saw pictures of online.  
+
+One caveat I must make is that the giveaway days I looked up in 2022 did not match the giveaway days in this data set, so although this data set is named dodgers-2022.csv, I believe the data may be from earlier.  This may drastically change the data's effect in certain cases (I was curious about which shirts were being given away and I saw shirts ranging from hawaiian to Jackie Robinson shirts throughout the years, which I find may draw a different number of fans.  Also, if this data was from 2020 or 2021, COVID-19 may have been having an effect on attendance as well as changing whether parents would bring their children to a game during 'the school year' if children were having school at home the whole time).
+
+## References
+B, Toby (2022). School Calendars 2022-2023: Start & End Dates for Los Angeles County Schools. Retrieved June 22,2025, from https://mommypoppins.com/school-calendars-2022-2023-los-angeles-county-schools-lausd-start-date
+
+Moreno, Matthew (2022).  2022 Dodgers Promotional Schedule & Giveaways: Bobbleheads, Jackie Robinson Jersey, Taco Tuesday & More.  Retrieved June 22, 2025, from https://dodgerblue.com/2022-dodgers-promotional-schedule-giveaways-bobbleheads-jackie-robinson-jersey-taco-tuesday-more/2022/03/16/
+
+Dodgers–Giants rivalry (n.d.). In Wikipedia.  Retrieved June 22, 2025 from https://en.wikipedia.org/wiki/Dodgers%E2%80%93Giants_rivalry  
